@@ -6,12 +6,15 @@ import com.learnkafka.domain.LibraryEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.util.concurrent.ListenableFutureCallback;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -60,7 +63,7 @@ public class LibraryEventProducer {
     public SendResult<Integer, String> sendLibraryEventSynchronous(LibraryEvent libraryEvent) throws JsonProcessingException, ExecutionException, InterruptedException, TimeoutException {
         Integer key = libraryEvent.getLibraryEventId();
         String value = objectMapper.writeValueAsString(libraryEvent);
-        SendResult<Integer, String> sendResult = null;
+        SendResult<Integer, String> sendResult;
         try {
             sendResult = kafkaTemplate.sendDefault(key, value).get(1, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException e) {
@@ -76,7 +79,7 @@ public class LibraryEventProducer {
 
     }
 
-    public void sendLibraryEvent_usingProducerRecord(LibraryEvent libraryEvent) throws JsonProcessingException, ExecutionException, InterruptedException, TimeoutException {
+    public void sendLibraryEvent_usingProducerRecord(LibraryEvent libraryEvent) throws JsonProcessingException {
 
         Integer key = libraryEvent.getLibraryEventId();
         String value = objectMapper.writeValueAsString(libraryEvent);
@@ -92,6 +95,8 @@ public class LibraryEventProducer {
 
     private ProducerRecord<Integer, String> buildProducerRecord(Integer key, String value, String topic) {
 
-        return new ProducerRecord<>(TOPIC, null, key, value, null);
+        List<Header> recordHeaders = List.of(new RecordHeader("event-source", "scanner".getBytes()));
+
+        return new ProducerRecord<>(TOPIC, null, key, value, recordHeaders);
     }
 }
