@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learnkafka.domain.LibraryEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,8 @@ import java.util.concurrent.TimeoutException;
 @Slf4j
 public class LibraryEventProducer {
 
+    private static final String TOPIC = "library-events";
+
     private final KafkaTemplate<Integer, String> kafkaTemplate;
 
     private final ObjectMapper objectMapper;
@@ -28,7 +31,7 @@ public class LibraryEventProducer {
         Integer key = libraryEvent.getLibraryEventId();
         String value = objectMapper.writeValueAsString(libraryEvent);
         ListenableFuture<SendResult<Integer, String>> sendResultListenableFuture = kafkaTemplate.sendDefault(key, value);
-        sendResultListenableFuture.addCallback(new ListenableFutureCallback<SendResult<Integer, String>>() {
+        sendResultListenableFuture.addCallback(new ListenableFutureCallback<>() {
             @Override
             public void onFailure(Throwable ex) {
                 handleFailure(key, value, ex);
@@ -71,5 +74,24 @@ public class LibraryEventProducer {
         return sendResult;
 
 
+    }
+
+    public void sendLibraryEvent_usingProducerRecord(LibraryEvent libraryEvent) throws JsonProcessingException, ExecutionException, InterruptedException, TimeoutException {
+
+        Integer key = libraryEvent.getLibraryEventId();
+        String value = objectMapper.writeValueAsString(libraryEvent);
+        ProducerRecord<Integer, String> producerRecord = buildProducerRecord(key, value, TOPIC);
+        try {
+            kafkaTemplate.send(producerRecord);
+        } catch (Exception e) {
+            log.error("Exception while sending the event {}", e.getMessage());
+            throw e;
+        }
+
+    }
+
+    private ProducerRecord<Integer, String> buildProducerRecord(Integer key, String value, String topic) {
+
+        return new ProducerRecord<>(TOPIC, null, key, value, null);
     }
 }
